@@ -2,7 +2,10 @@ pluginManagement {
     repositories {
         google()
         mavenCentral()
+        jcenter()
         gradlePluginPortal()
+        maven { url 'https://maven.google.com' } // 添加其他 Maven 仓库
+        maven { url 'https://jitpack.io' }
     }
 }
 dependencyResolutionManagement {
