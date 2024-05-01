@@ -40,7 +40,9 @@ import androidx.compose.ui.unit.sp
 
 import com.plcoding.bluetoothchat.R
 import com.plcoding.bluetoothchat.domain.chat.BluetoothDevice
+import com.plcoding.bluetoothchat.map.Map
 import com.plcoding.bluetoothchat.presentation.BluetoothUiState
+import com.plcoding.bluetoothchat.ui.theme.BluetoothChatTheme
 
 
 @Composable
@@ -167,20 +169,15 @@ fun DevicePage(deviceName: String,onSendMessage: (String) -> Unit) {
 
 @Composable
 fun LocationPage() {
-//    val hydePark = LatLng(51.508610, -0.163611)
-//    val cameraPositionState = rememberCameraPositionState {
-//        position = CameraPosition.fromLatLngZoom(hydePark, 10f)
-//    }
-
-//    GoogleMap(
-//        modifier = Modifier.fillMaxSize(),
-//        cameraPositionState = cameraPositionState) {
-//        Marker(
-//            state = MarkerState(position = hydePark),
-//            title = "Hyde Park",
-//            snippet = "Marker in Hyde Park"
-//        )
-//    }
+    BluetoothChatTheme{
+        // A surface container using the 'background' color from the theme
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colors.background
+        ) {
+            Map()
+        }
+    }
 
 }
 
