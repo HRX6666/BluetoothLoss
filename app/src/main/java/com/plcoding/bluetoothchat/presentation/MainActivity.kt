@@ -40,18 +40,19 @@ import com.vmadalin.easypermissions.EasyPermissions
 import com.vmadalin.easypermissions.models.PermissionRequest
 import dagger.hilt.android.AndroidEntryPoint
 
+/**
+ * 所有的界面都是在一个activity中，其中切换都是利用的compose组件进行切换的
+ */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    /**
+     * 数据定义专区
+     */
     private lateinit var context: Context
     private lateinit var bluetoothDatabase: BluetoothDatabase
     private lateinit var viewModel: BluetoothViewModel
     private val handler = Handler()
     private var rssi:Int=0
-    // 假设你已经在其他地方实例化了 BluetoothDatabase 类
-
-    // 使用 getRssi 方法获取 rssi 值
-
-
 
     private val bluetoothManager by lazy {
         applicationContext.getSystemService(BluetoothManager::class.java)
@@ -73,55 +74,55 @@ class MainActivity : ComponentActivity() {
         window.setFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
             WindowManager.LayoutParams.FLAG_FULLSCREEN
-        )
+        )//隐藏标题栏让APP看起来好看一点哈哈哈
         context = applicationContext // 初始化 context
         val enableBluetoothLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { /* Not needed */ }
-
+        //定位隐私政策同意
+        AMapLocationClient.updatePrivacyShow(applicationContext, true, true);
+        AMapLocationClient.updatePrivacyAgree(applicationContext, true);
+        //地图隐私政策同意
+        MapsInitializer.updatePrivacyShow(applicationContext, true, true);
+        MapsInitializer.updatePrivacyAgree(applicationContext, true);
+        //搜索隐私政策同意
+        ServiceSettings.updatePrivacyShow(applicationContext, true, true);
+        ServiceSettings.updatePrivacyAgree(applicationContext, true);
+        MapsInitializer.setTerrainEnable(true)
         val permissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { perms ->
-            val canEnableBluetooth = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val canEnableBluetooth = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 perms[Manifest.permission.BLUETOOTH_CONNECT] == true
             } else true
-
-            if(canEnableBluetooth && !isBluetoothEnabled) {
+            // 如果有蓝牙权限并且蓝牙未开启，则请求开启蓝牙
+            if (canEnableBluetooth && !isBluetoothEnabled) {
                 enableBluetoothLauncher.launch(
                     Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
                 )
             }
         }
-
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+// 请求蓝牙和定位权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissionLauncher.launch(
-                arrayOf(//请求多个权限
+                arrayOf(
+//请求多个权限
                     Manifest.permission.BLUETOOTH_SCAN,
                     Manifest.permission.BLUETOOTH_CONNECT,
                 )
             )
         }
-        //定位隐私政策同意
-        AMapLocationClient.updatePrivacyShow(applicationContext,true,true);
-        AMapLocationClient.updatePrivacyAgree(applicationContext,true);
-        //地图隐私政策同意
-        MapsInitializer.updatePrivacyShow(applicationContext,true,true);
-        MapsInitializer.updatePrivacyAgree(applicationContext,true);
-        //搜索隐私政策同意
-        ServiceSettings.updatePrivacyShow(applicationContext,true,true);
-        ServiceSettings.updatePrivacyAgree(applicationContext,true);
-        MapsInitializer.setTerrainEnable(true)
+        // 检查定位权限并请求
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION), 1);
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
+                    1
+                );
             }
         }
-
-
-
-
-
-
+        // 请求其他权限
         val permissions = arrayOf(
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION,
@@ -136,10 +137,15 @@ class MainActivity : ComponentActivity() {
             .build()
         EasyPermissions.requestPermissions(this, build)
         setContent {
-            MaterialTheme{
+            MaterialTheme {
+                // 获取 BluetoothViewModel 实例
                 val viewModel = hiltViewModel<BluetoothViewModel>()
+                // 收集状态
                 val state by viewModel.state.collectAsState()
+                // 获取配对设备的 RSSI 映射
                 val pairedDevicesRssiMap by viewModel.pairedDevicesRssiMap
+
+                // 处理错误消息的 LaunchedEffect
                 LaunchedEffect(key1 = state.errorMessage) {
                     state.errorMessage?.let { message ->
                         Toast.makeText(
@@ -150,8 +156,9 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // 处理连接成功的 LaunchedEffect
                 LaunchedEffect(key1 = state.isConnected) {
-                    if(state.isConnected) {
+                    if (state.isConnected) {
                         Toast.makeText(
                             applicationContext,
                             "你已连接成功",
@@ -165,6 +172,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     when {
                         state.isConnecting -> {
+                            // 显示连接中状态
                             Column(
                                 modifier = Modifier.fillMaxSize(),
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -174,28 +182,27 @@ class MainActivity : ComponentActivity() {
                                 Text(text = "正在连接，请稍后......")
                             }
                         }
-                        /**
-                         * 如果成功连接了
-                         */
+
                         state.isConnected -> {
-
-                            MainPage(//加入MainPage组件，传入对应的参数
+                            // 显示主页界面
+                            MainPage(
                                 state = state,
-                                onStartScan = viewModel::startScan,//点击开始扫描
+                                onStartScan = viewModel::startScan, // 点击开始扫描
                                 onSendMessage = viewModel::sendMessage,
-                                onDeviceClick = viewModel::connectToDevice,//如果被点击item连接
-                                rssi = rssi.toString()
+                                onDeviceClick = viewModel::connectToDevice, // 点击设备连接
+                                rssi = rssi.toString() // RSSI 值
                             )
-
                         }
+
                         else -> {
+                            // 显示设备屏幕
                             DeviceScreen(
                                 state = state,
-                                onStartScan = viewModel::startScan,//点击开始扫描
-                                onStopScan = viewModel::stopScan,//点击停止扫描
-                                onDeviceClick = viewModel::connectToDevice,//如果被点击item连接
-                                onStartServer = viewModel::waitForIncomingConnections,//点击连接服务端
-                                rssi = rssi.toString()
+                                onStartScan = viewModel::startScan, // 点击开始扫描
+                                onStopScan = viewModel::stopScan, // 点击停止扫描
+                                onDeviceClick = viewModel::connectToDevice, // 点击设备连接
+                                onStartServer = viewModel::waitForIncomingConnections, // 点击启动服务器
+                                rssi = rssi.toString() // RSSI 值
                             )
                         }
                     }
@@ -203,16 +210,18 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    private fun startScanTask() {
-        handler.postDelayed(object : Runnable {
-            override fun run() {
-                viewModel.startScan()
-                rssi = Math.abs(bluetoothDatabase.getRssi("E8:6B:EA:DE:E9:EE"))
-                Log.i("rooo",rssi.toString()+"E8:6B:EA:DE:E9:EE")
-                handler.postDelayed(this, 200)
+        // 启动扫描任务
+        private fun startScanTask() {
+            handler.postDelayed(object : Runnable {
+                override fun run() {
+                    viewModel.startScan()
+                    // 获取 RSSI 值并记录日志
+                    rssi = Math.abs(bluetoothDatabase.getRssi("E8:6B:EA:DE:E9:EE"))
+                    Log.i("rooo", rssi.toString() + "E8:6B:EA:DE:E9:EE")
+                    handler.postDelayed(this, 200)
+                }
+            }, 200)
+        }
 
-            }
-        }, 200)
-    }
 
 }

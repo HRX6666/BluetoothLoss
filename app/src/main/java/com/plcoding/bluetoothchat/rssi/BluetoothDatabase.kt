@@ -5,6 +5,11 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
+/**
+ * 数据库部分
+ * 里面存储蓝牙的地址和rssi信号值
+ * 存储rssi<-70的时候地图和丢失时候的时间数据
+ */
 class BluetoothDatabase(context: Context) : SQLiteOpenHelper(context, "BluetoothDB", null, 1) {
     override fun onCreate(db: SQLiteDatabase?) {
         db?.execSQL("CREATE TABLE IF NOT EXISTS BluetoothDevices (address TEXT PRIMARY KEY, rssi INTEGER)")

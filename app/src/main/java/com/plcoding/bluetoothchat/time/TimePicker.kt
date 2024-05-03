@@ -48,6 +48,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 
+/**
+ * 时间选择器
+ */
 @ExperimentalMaterial3Api
 @Stable
 object TimePickerDefaults {

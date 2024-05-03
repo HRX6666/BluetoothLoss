@@ -1,42 +1,39 @@
 package com.plcoding.bluetoothchat.presentation
 
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothManager
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.plcoding.bluetoothchat.di.BluetoothRssiManager
 import com.plcoding.bluetoothchat.domain.chat.BluetoothController
 import com.plcoding.bluetoothchat.domain.chat.BluetoothDeviceDomain
-import com.plcoding.bluetoothchat.domain.chat.BluetoothMessage
 import com.plcoding.bluetoothchat.domain.chat.ConnectionResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.produce
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * 采用MVVM的架构，所以这个是MainActivity的ViewModel，主要是一些逻辑函数的部分
+ */
 @HiltViewModel
 class BluetoothViewModel @Inject constructor(
     private val bluetoothController: BluetoothController
 ): ViewModel() {
-    val messagesState = MutableStateFlow<List<BluetoothMessage>>(emptyList())
 
-    private val tag = this.javaClass.simpleName
-
+    // 存储已配对设备的 RSSI 值映射
     private val _pairedDevicesRssiMap = mutableStateOf<Map<String, Int>>(emptyMap())
     val pairedDevicesRssiMap: State<Map<String, Int>> = _pairedDevicesRssiMap
-    fun updateRssiMap(newRssiMap: Map<String, Int>) {
-        _pairedDevicesRssiMap.value = newRssiMap
 
-    }
-
+    // 用于监听蓝牙连接和通信状态的 StateFlow
     private val _state = MutableStateFlow(BluetoothUiState())
     val state = combine(
         bluetoothController.scannedDevices,
@@ -50,8 +47,10 @@ class BluetoothViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _state.value)
 
+    // 用于管理设备连接的 Job
     private var deviceConnectionJob: Job? = null
 
+    // 初始化，监听蓝牙连接状态和错误信息
     init {
         bluetoothController.isConnected.onEach { isConnected ->
             _state.update { it.copy(isConnected = isConnected) }
@@ -63,6 +62,8 @@ class BluetoothViewModel @Inject constructor(
             ) }
         }.launchIn(viewModelScope)
     }
+
+    // 扩展 Flow<ConnectionResult> 的函数，用于处理连接结果
     fun Flow<ConnectionResult>.listen(): Job {
         return onEach { result ->
             when(result) {
@@ -100,6 +101,10 @@ class BluetoothViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+
+    /**
+     * 连接蓝牙
+     */
     fun connectToDevice(device: BluetoothDeviceDomain) {
         _state.update { it.copy(isConnecting = true) }
         deviceConnectionJob = bluetoothController
@@ -107,6 +112,9 @@ class BluetoothViewModel @Inject constructor(
             .listen()
     }
 
+    /**
+     * 断开蓝牙的连接
+     */
     fun disconnectFromDevice() {
         deviceConnectionJob?.cancel()
         bluetoothController.closeConnection()
@@ -116,6 +124,9 @@ class BluetoothViewModel @Inject constructor(
         ) }
     }
 
+    /**
+     * 等待蓝牙的连接
+     */
     fun waitForIncomingConnections() {
         _state.update { it.copy(isConnecting = true) }
         deviceConnectionJob = bluetoothController
@@ -137,38 +148,44 @@ class BluetoothViewModel @Inject constructor(
         }
     }
 
-
+    /**
+     * 开始扫描蓝牙
+     */
     fun startScan() {
 
         bluetoothController.startDiscovery()
 
     }
+
+    /**
+     * 结束扫描蓝牙
+     */
     fun stopScan() {
         bluetoothController.stopDiscovery()
     }
-    suspend fun fromMessage(): String = coroutineScope {
-        val messageChannel = produce<String> {
-            bluetoothController.startBluetoothServer().collect { result ->
-                when (result) {
-                    is ConnectionResult.TransferSucceeded -> {
-                        val bluetoothMessage = result.message
-                        send(bluetoothMessage.toString() + "xxxxx")
-                    }
-                    // 可以根据需要处理其他类型的 ConnectionResult
-                    else -> {
-                        // 其他类型的处理逻辑
-                    }
-                }
-            }
-        }
-
-        messageChannel.receive()
-    }
-
-
+//    suspend fun fromMessage(): String = coroutineScope {
+//        val messageChannel = produce<String> {
+//            bluetoothController.startBluetoothServer().collect { result ->
+//                when (result) {
+//                    is ConnectionResult.TransferSucceeded -> {
+//                        val bluetoothMessage = result.message
+//                        send(bluetoothMessage.toString() + "xxxxx")
+//                    }
+//                    // 可以根据需要处理其他类型的 ConnectionResult
+//                    else -> {
+//                        // 其他类型的处理逻辑
+//                    }
+//                }
+//            }
+//        }
+//
+//        messageChannel.receive()
+//    }
 
 
 
+
+//清理
     override fun onCleared() {
         super.onCleared()
         bluetoothController.release()

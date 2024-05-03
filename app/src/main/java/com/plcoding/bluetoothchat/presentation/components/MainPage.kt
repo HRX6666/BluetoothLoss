@@ -43,6 +43,13 @@ import java.time.Duration
 import java.time.LocalTime
 import java.util.Date
 
+/**
+ * 主界面的compose组件
+ * 里面有三个界面分别为设备、定位、设置界面
+ * 设备为查看当前设备以及是否选择报警
+ * 定位是查看当前地图位置，这里内置的时候是高德地图
+ * 设置设置休眠时间
+ */
 @Composable
 fun MainPage(
     state: BluetoothUiState,
@@ -51,41 +58,58 @@ fun MainPage(
     onDeviceClick: (BluetoothDevice) -> Unit,//当设备被点击的时候
     rssi:String
 ) {
+    // 获取当前系统时间的毫秒数
     val currentTimeMillis = System.currentTimeMillis()
+
+// 日期格式化器，用于将时间戳转换为指定格式的日期字符串
     val dateFormat = SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss")
+
+// 将 RSSI 字符串转换为整数值，若无法转换则默认为 0
     val rssi1: Int = rssi.toIntOrNull() ?: 0
+
+// 将 RSSI 值与 70 进行比较，返回比较结果
     val comparisonResult = rssi1.compareTo(70)
+
+// 当前选项卡的状态，可用于控制界面显示不同的内容
     var currentTab by remember { mutableStateOf(MainTab.DEVICE) }
+
+// 是否显示丢失警报对话框的状态
     val lossAlertDialog= remember { mutableStateOf(false) }//选择技能的弹出框状态
+
 
     LaunchedEffect(Unit) {
         while (true) {
             delay(10000) // 延迟10秒
             if (comparisonResult > 0) {
-                // rssi大于70
-                onSendMessage("beep")
-                lossAlertDialog.value=true
+                // 如果 RSSI 大于 70
+                onSendMessage("beep") // 发送 "beep" 消息
+                lossAlertDialog.value = true // 显示丢失警报对话框
             }
         }
     }
+
+// 将当前时间戳格式化为指定格式的日期字符串
     val formattedDate = dateFormat.format(Date(currentTimeMillis))
-    if(lossAlertDialog.value){
+
+// 如果丢失警报对话框需要显示
+    if (lossAlertDialog.value) {
         AlertDialog(
             onDismissRequest = { lossAlertDialog.value = false },
             title = {
-                    Text(text = formattedDate+"\nHC-05已断开")
+                // 在对话框标题中显示格式化后的日期和提示消息
+                Text(text = formattedDate + "\nHC-05已断开")
             },
             text = {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
+                    // 在对话框中心显示图片
                     Image(
                         painter = painterResource(R.drawable.ic_bluetooth), // 替换为你的图片资源
                         contentDescription = "Your Image",
                         modifier = Modifier.size(200.dp) // 调整图片大小
                     )
-
                 }
             },
             buttons = {
@@ -93,19 +117,21 @@ fun MainPage(
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Button(onClick = { lossAlertDialog.value = false },
+                    // 添加一个按钮用于关闭对话框
+                    Button(
+                        onClick = { lossAlertDialog.value = false },
                         colors = ButtonDefaults.buttonColors(
                             backgroundColor = Color(0xFF6FD2FF), // 按钮的背景颜色
                             contentColor = Color.White // 按钮中文本的颜色
-                        )) {
+                        )
+                    ) {
                         Text(text = "好的")
                     }
                 }
             }
         )
-
-
     }
+
     Scaffold(
         bottomBar = {
             BottomNavigation {
@@ -150,6 +176,9 @@ fun MainPage(
     }
 }
 
+/**
+ * 设备界面的compose组件
+ */
 @Composable
 fun DevicePage(deviceName: String,onSendMessage: (String) -> Unit,rssi:String) {
 
@@ -212,7 +241,9 @@ fun DevicePage(deviceName: String,onSendMessage: (String) -> Unit,rssi:String) {
 }
 
 
-
+/**
+ * 地图部分的组件
+ */
 @Composable
 fun LocationPage(rssi:String,onSendMessage: (String) -> Unit) {
 
@@ -235,11 +266,9 @@ fun LocationPage(rssi:String,onSendMessage: (String) -> Unit) {
 }
 
 
-
-
-
-
-
+/**
+ * 设置休眠的compose组件
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsPage(rssi:String,onSendMessage: (String) -> Unit) {
@@ -429,16 +458,20 @@ fun SettingsPage(rssi:String,onSendMessage: (String) -> Unit) {
 
 
 
+// 定义一个枚举类 MainTab，表示主选项卡，包括图标资源 ID 和标题
+//底部导航栏部分数据
 enum class MainTab(val iconResId: Int, val title: String) {
-    DEVICE(R.drawable.ic_device, "设备"),
-    LOCATION(R.drawable.ic_location, "定位"),
-    SETTINGS(R.drawable.ic_settings, "设置")
+    DEVICE(R.drawable.ic_device, "设备"), // 设备选项卡，包括设备图标和标题
+    LOCATION(R.drawable.ic_location, "定位"), // 定位选项卡，包括定位图标和标题
+    SETTINGS(R.drawable.ic_settings, "设置") // 设置选项卡，包括设置图标和标题
 }
+
 
 @Preview
 @Composable
 fun MainPagePreview() {
     //  MainPage()
+    //在这里可以在AS中预览，一般测试用
 }
 
 

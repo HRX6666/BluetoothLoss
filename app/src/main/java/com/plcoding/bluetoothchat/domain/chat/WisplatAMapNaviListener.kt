@@ -2,8 +2,22 @@ package com.plcoding.bluetoothchat.domain.chat
 
 
 import com.amap.api.navi.AMapNaviListener
-import com.amap.api.navi.model.*
+import com.amap.api.navi.model.AMapCalcRouteResult
+import com.amap.api.navi.model.AMapLaneInfo
+import com.amap.api.navi.model.AMapModelCross
+import com.amap.api.navi.model.AMapNaviCameraInfo
+import com.amap.api.navi.model.AMapNaviCross
+import com.amap.api.navi.model.AMapNaviLocation
+import com.amap.api.navi.model.AMapNaviRouteNotifyData
+import com.amap.api.navi.model.AMapNaviTrafficFacilityInfo
+import com.amap.api.navi.model.AMapServiceAreaInfo
+import com.amap.api.navi.model.AimLessModeCongestionInfo
+import com.amap.api.navi.model.AimLessModeStat
+import com.amap.api.navi.model.NaviInfo
 
+/**
+ * 它实现了 AMapNaviListener 接口。该接口用于处理高德地图导航SDK的各种回调事件
+ */
 open class WisplatAMapNaviListener : AMapNaviListener {
     override fun onInitNaviFailure() {
 

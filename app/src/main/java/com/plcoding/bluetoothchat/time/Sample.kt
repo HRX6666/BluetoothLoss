@@ -12,6 +12,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import java.time.LocalTime
 
+/**
+ * 时间选择器使用的小demo,不用管可以舍弃，测试使用的哈哈哈哈
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Sample() {

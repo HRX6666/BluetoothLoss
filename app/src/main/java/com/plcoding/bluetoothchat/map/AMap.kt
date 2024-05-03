@@ -63,11 +63,8 @@ import kotlinx.coroutines.delay
 
 
 /**
- *
-@author xuleyu
-@Email xuleyumail@gmail.com
-@create 2023-10-19 16:01
- *
+ * 地图组件部分，以及查看主机在哪个具体位置
+ * 地图放大缩小。。。。。。。。。。。
  */
 
 

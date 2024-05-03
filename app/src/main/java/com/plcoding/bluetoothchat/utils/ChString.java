@@ -1,9 +1,7 @@
 package com.plcoding.bluetoothchat.utils;
 
 /**
- * @author xuleyu
- * @Email xuleyumail@gmail.com
- * @create 2022-12-08 13:39
+ * 地图数据类
  */
 public class ChString {
     public static final String Kilometer = "\u516c\u91cc";// "公里";

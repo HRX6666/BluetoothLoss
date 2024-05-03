@@ -11,7 +11,6 @@ import java.util.List;
 /**
  * 地图帮助类
  *
- * @author xuleyu
  */
 public class MapUtil {
 

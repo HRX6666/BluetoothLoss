@@ -10,6 +10,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+/**
+ * 用于管理蓝牙功能
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {

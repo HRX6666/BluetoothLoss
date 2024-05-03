@@ -6,15 +6,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
-import com.plcoding.bluetoothchat.di.BluetoothRssiManager
-import com.plcoding.bluetoothchat.di.BluetoothRssiManager.pairedDevicesRssiMap
 import com.plcoding.bluetoothchat.rssi.BluetoothDatabase
-
-import android.content.ContentValues
-import kotlinx.coroutines.Dispatchers
-import android.database.sqlite.SQLiteDatabase
-import android.os.Bundle
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,7 +29,11 @@ class FoundDeviceReceiver(
         // 初始化 bluetoothDatabase
         bluetoothDatabase = BluetoothDatabase(context)
     }
-
+/**
+ * 方法是广播接收器接收到广播时调用的方法。它首先检查接收到的意图动作是否为 BluetoothDevice.ACTION_FOUND，
+ * 以确定是否发现了蓝牙设备。如果是，它会从意图中提取设备和RSSI值，并通过协程在IO线程中保存和获取RSSI值，
+ * 并在主线程中将设备及其RSSI值传递给 onDeviceFound 回调函数。
+ */
     override fun onReceive(context: Context?, intent: Intent?) {
         Log.i(tag.toString(), "onReceive() intent=${intent?.action}")
         when(intent?.action) {//检查这个意图动作是否为蓝牙设备
@@ -66,6 +64,13 @@ class FoundDeviceReceiver(
             }
         }
     }
+
+    /**
+     * 一个挂起函数
+     * 方法用于保存和获取设备的RSSI值。它在IO线程中执行数据库操作，
+     * 并在每次保存后延迟200毫秒以获取最新的RSSI值。在发生异常时，
+     * 它会返回错误值或其他默认值，并最终关闭数据库连接
+     */
     private suspend fun saveAndGetRssi(address: String, rssi: Int): Int = withContext(Dispatchers.IO) {
         var currentRssi = rssi
         try {
