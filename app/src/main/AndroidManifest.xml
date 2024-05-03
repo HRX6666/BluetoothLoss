@@ -47,14 +47,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".map.MainActivity"
-            android:enabled="true"
-            android:theme="@style/Theme.BluetoothChat">
-
-        </activity>
-
         <service android:name="com.amap.api.location.APSService"></service>
-        <meta-data android:name="com.amap.api.v2.apikey" android:value="6bd903679c6231d333c74fd468caec12"/>
+        <meta-data android:name="com.amap.api.v2.apikey" android:value="e30253d2c80f7fd9f2c2510b555ffaf2"/>
     </application>
 
 </manifest>

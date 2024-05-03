@@ -16,6 +16,8 @@ import java.io.IOException
 class BluetoothDataTransferService(
     private val socket: BluetoothSocket//构建一个私人的蓝牙Socket
 ) {
+
+
     /**
      * 监听传入的消息
      */
@@ -67,4 +69,5 @@ class BluetoothDataTransferService(
             true
         }
     }
+
 }

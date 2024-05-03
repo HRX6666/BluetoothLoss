@@ -1,7 +1,15 @@
 package com.plcoding.bluetoothchat.presentation
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.util.Log
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.plcoding.bluetoothchat.di.BluetoothRssiManager
 import com.plcoding.bluetoothchat.domain.chat.BluetoothController
 import com.plcoding.bluetoothchat.domain.chat.BluetoothDeviceDomain
 import com.plcoding.bluetoothchat.domain.chat.BluetoothMessage
@@ -20,6 +28,14 @@ class BluetoothViewModel @Inject constructor(
 ): ViewModel() {
     val messagesState = MutableStateFlow<List<BluetoothMessage>>(emptyList())
 
+    private val tag = this.javaClass.simpleName
+
+    private val _pairedDevicesRssiMap = mutableStateOf<Map<String, Int>>(emptyMap())
+    val pairedDevicesRssiMap: State<Map<String, Int>> = _pairedDevicesRssiMap
+    fun updateRssiMap(newRssiMap: Map<String, Int>) {
+        _pairedDevicesRssiMap.value = newRssiMap
+
+    }
 
     private val _state = MutableStateFlow(BluetoothUiState())
     val state = combine(
@@ -123,7 +139,9 @@ class BluetoothViewModel @Inject constructor(
 
 
     fun startScan() {
+
         bluetoothController.startDiscovery()
+
     }
     fun stopScan() {
         bluetoothController.stopDiscovery()

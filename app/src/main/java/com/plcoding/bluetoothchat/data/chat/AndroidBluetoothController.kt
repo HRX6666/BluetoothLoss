@@ -3,6 +3,7 @@ package com.plcoding.bluetoothchat.data.chat
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothServerSocket
@@ -10,6 +11,12 @@ import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.plcoding.bluetoothchat.di.BluetoothRssiManager.pairedDevicesRssiMap
 import com.plcoding.bluetoothchat.domain.chat.BluetoothController
 import com.plcoding.bluetoothchat.domain.chat.BluetoothDeviceDomain
 import com.plcoding.bluetoothchat.domain.chat.BluetoothMessage
@@ -59,12 +66,24 @@ class AndroidBluetoothController(
     /**
      * 广播接收器
      */
-    private val foundDeviceReceiver = FoundDeviceReceiver { device ->
+// 在你的 Activity 或 Fragment 中
+    val foundDeviceReceiver = FoundDeviceReceiver(context) { device, rssi ->
+        // 更新扫描到的设备列表
         _scannedDevices.update { devices ->
-            val newDevice = device.toBluetoothDeviceDomain()//得到的新设备是设备到蓝牙设备域
-            if(newDevice in devices) devices else devices + newDevice//将设备加入现有的列表之中
+            val newDevice = device.toBluetoothDeviceDomain(rssi)
+            if (newDevice in devices) devices else devices + newDevice
         }
+
+        // 更新已配对设备的 RSSI 信息
+        pairedDevicesRssiMap[device.address] = rssi
+        Log.i("12345678", pairedDevicesRssiMap[device.address].toString())
     }
+
+
+
+
+
+
 
     /**
      * 蓝牙状态接收器
@@ -249,16 +268,18 @@ class AndroidBluetoothController(
      * 更新配对设备
      */
     private fun updatePairedDevices() {
-        if(!hasPermission(Manifest.permission.BLUETOOTH_CONNECT)) {//权限检查，若没有许可则返回
+
+        if(!hasPermission(Manifest.permission.BLUETOOTH_CONNECT)) {
             return
         }
-        bluetoothAdapter
-            ?.bondedDevices//一组蓝牙设备
-            ?.map { it.toBluetoothDeviceDomain() }//映射到我们自己的蓝牙设备上，-》BluetoothDeviceMapper
-            ?.also { devices ->
-                _pairedDevices.update { devices }//updata
-            }
+        bluetoothAdapter?.bondedDevices?.map { bondedDevice ->
+            val rssi = pairedDevicesRssiMap[bondedDevice.address] ?: -6 // 默认为-1，表示未获取到RSSI信息
+            bondedDevice.toBluetoothDeviceDomain(rssi)
+        }?.also { devices ->
+            _pairedDevices.update { devices }
+        }
     }
+
 
     /**
      * 以字符串的形式传递，是否获得权限，一个帮助类函数
@@ -270,4 +291,5 @@ class AndroidBluetoothController(
     companion object {
         const val SERVICE_UUID = "00001101-0000-1000-8000-00805f9b34fb"
     }
+
 }

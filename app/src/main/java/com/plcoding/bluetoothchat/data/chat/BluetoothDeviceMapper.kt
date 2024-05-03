@@ -8,9 +8,10 @@ import com.plcoding.bluetoothchat.domain.chat.BluetoothDeviceDomain
  * 蓝牙消息的映射类
  */
 @SuppressLint("MissingPermission")
-fun BluetoothDevice.toBluetoothDeviceDomain(): BluetoothDeviceDomain {
+fun BluetoothDevice.toBluetoothDeviceDomain(rssi: Int): BluetoothDeviceDomain {
     return BluetoothDeviceDomain(
-        name = name,//映射蓝牙名称，需要加入蓝牙连接的权限
-        address = address //映射地址
+        name = name, // 映射蓝牙名称，需要加入蓝牙连接的权限
+        address = address, // 映射地址
+        rssi = rssi // 添加rssi
     )
 }

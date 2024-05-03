@@ -1,4 +1,5 @@
 package com.plcoding.bluetoothchat.presentation
+
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -7,6 +8,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -26,21 +29,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.app.ActivityCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModelProvider
 import com.amap.api.location.AMapLocationClient
 import com.amap.api.maps.MapsInitializer
 import com.amap.api.services.core.ServiceSettings
-import com.plcoding.bluetoothchat.domain.chat.BluetoothDeviceDomain
 import com.plcoding.bluetoothchat.presentation.components.DeviceScreen
 import com.plcoding.bluetoothchat.presentation.components.MainPage
+import com.plcoding.bluetoothchat.rssi.BluetoothDatabase
 import com.vmadalin.easypermissions.EasyPermissions
 import com.vmadalin.easypermissions.models.PermissionRequest
-
-
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private lateinit var context: Context // 声明为 lateinit var
+    private lateinit var context: Context
+    private lateinit var bluetoothDatabase: BluetoothDatabase
+    private lateinit var viewModel: BluetoothViewModel
+    private val handler = Handler()
+    private var rssi:Int=0
+    // 假设你已经在其他地方实例化了 BluetoothDatabase 类
+
+    // 使用 getRssi 方法获取 rssi 值
+
+
 
     private val bluetoothManager by lazy {
         applicationContext.getSystemService(BluetoothManager::class.java)
@@ -54,6 +65,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        viewModel = ViewModelProvider(this).get(BluetoothViewModel::class.java)
+        context = this
+        startScanTask()
+        // 实例化 BluetoothDatabase，并传入 context
+        bluetoothDatabase = BluetoothDatabase(context)
         window.setFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
             WindowManager.LayoutParams.FLAG_FULLSCREEN
@@ -100,6 +116,12 @@ class MainActivity : ComponentActivity() {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION), 1);
             }
         }
+
+
+
+
+
+
         val permissions = arrayOf(
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION,
@@ -117,7 +139,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme{
                 val viewModel = hiltViewModel<BluetoothViewModel>()
                 val state by viewModel.state.collectAsState()
-
+                val pairedDevicesRssiMap by viewModel.pairedDevicesRssiMap
                 LaunchedEffect(key1 = state.errorMessage) {
                     state.errorMessage?.let { message ->
                         Toast.makeText(
@@ -162,7 +184,7 @@ class MainActivity : ComponentActivity() {
                                 onStartScan = viewModel::startScan,//点击开始扫描
                                 onSendMessage = viewModel::sendMessage,
                                 onDeviceClick = viewModel::connectToDevice,//如果被点击item连接
-
+                                rssi = rssi.toString()
                             )
 
                         }
@@ -172,7 +194,8 @@ class MainActivity : ComponentActivity() {
                                 onStartScan = viewModel::startScan,//点击开始扫描
                                 onStopScan = viewModel::stopScan,//点击停止扫描
                                 onDeviceClick = viewModel::connectToDevice,//如果被点击item连接
-                                onStartServer = viewModel::waitForIncomingConnections//点击连接服务端
+                                onStartServer = viewModel::waitForIncomingConnections,//点击连接服务端
+                                rssi = rssi.toString()
                             )
                         }
                     }
@@ -180,4 +203,16 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    private fun startScanTask() {
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                viewModel.startScan()
+                rssi = Math.abs(bluetoothDatabase.getRssi("E8:6B:EA:DE:E9:EE"))
+                Log.i("rooo",rssi.toString()+"E8:6B:EA:DE:E9:EE")
+                handler.postDelayed(this, 200)
+
+            }
+        }, 200)
+    }
+
 }

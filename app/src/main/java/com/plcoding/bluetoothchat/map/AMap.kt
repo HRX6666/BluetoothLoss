@@ -5,33 +5,27 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.Button
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,7 +35,6 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -58,18 +51,15 @@ import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.MarkerOptions
 import com.amap.api.maps.model.MyLocationStyle
 import com.amap.api.navi.AMapNavi
-import com.amap.api.navi.model.AMapCalcRouteResult
-import com.amap.api.navi.model.NaviLatLng
-import com.amap.api.navi.view.RouteOverLay
 import com.amap.api.services.core.LatLonPoint
 import com.amap.api.services.geocoder.GeocodeResult
 import com.amap.api.services.geocoder.GeocodeSearch
 import com.amap.api.services.geocoder.RegeocodeQuery
 import com.amap.api.services.geocoder.RegeocodeResult
 import com.plcoding.bluetoothchat.R
+import com.plcoding.bluetoothchat.rssi.BluetoothDatabase
 import com.plcoding.bluetoothchat.utils.MapUtil
-
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 
 
 /**
@@ -94,14 +84,14 @@ private var mListener: LocationSource.OnLocationChangedListener? = null
 //地理编码搜索
 private lateinit var geocodeSearch: GeocodeSearch
 lateinit var aMapNavi: AMapNavi
-
+val LocalAppContext = staticCompositionLocalOf<Context?> { error("No app context provided") }
 @Composable
-fun Map() {
+fun Map(rssi:String) {
+    val context = LocalContext.current
     var mStartPoint by remember { mutableStateOf(AMapPoint("", LatLonPoint(0.0, 0.0))) }
     var mEndpoint by remember { mutableStateOf(AMapPoint("", LatLonPoint(0.0, 0.0))) }
-
     val viewModel : AMapViewModel = viewModel()
-
+    val bluetoothDatabase = BluetoothDatabase(context)
     val routeShow by viewModel.routeShow.collectAsState()
 
     val searchListener = object : GeocodeSearch.OnGeocodeSearchListener {
@@ -136,11 +126,14 @@ fun Map() {
                 val lon = "%.6f".format(aMapLocation.longitude)
                 val latLng = LatLng(lat.toDouble(), lon.toDouble())
                 //设置起点
-                mStartPoint =
-                    AMapPoint(aMapLocation.address, MapUtil.convertToLatLonPoint(latLng))
+                mStartPoint = AMapPoint(aMapLocation.address, MapUtil.convertToLatLonPoint(latLng))
                 //显示地图定位结果
                 mLocationClient.stopLocation()
                 mListener?.onLocationChanged(aMapLocation)
+                Log.e(
+                    "AmapLLLLLLL",
+                    mStartPoint.name
+                )
             } else {
                 //定位失败时，可通过ErrCode（错误码）信息来确定失败的原因，errInfo是错误信息，详见错误码表。
                 Log.e(
@@ -151,86 +144,20 @@ fun Map() {
             }
         }
     }
-    Box {
-        Row(modifier = Modifier
-            .align(Alignment.TopStart)) {
-            Box(
-                modifier = Modifier
-                    .padding(top = 5.dp, start = 5.dp)
-                    .background(
-                        Color.White
-                    )
-                    .size(300.dp, 150.dp)
-                    .zIndex(1f)
-            ) {
-                Column {
-                    PositionInput(
-                        modifier = Modifier
-                            .padding(horizontal = 10.dp)
-                            .background(Color.Gray, CircleShape)
-                            .height(30.dp)
-                            .fillMaxWidth(), Icons.Filled.LocationOn, "请输入起点", mStartPoint.name
-                    )
-                    Spacer(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(Color.White)
-                    )
-                    PositionInput(
-                        modifier = Modifier
-                            .padding(horizontal = 10.dp)
-                            .background(Color.Gray, CircleShape)
-                            .height(30.dp)
-                            .fillMaxWidth(), Icons.Filled.LocationOn, "请输入途径点", ""
-                    )
-                    PositionInput(
-                        modifier = Modifier
-                            .padding(horizontal = 10.dp)
-                            .background(Color.Gray, CircleShape)
-                            .height(30.dp)
-                            .fillMaxWidth(), Icons.Filled.LocationOn, "请输入终点", mEndpoint.name
-                    )
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Button(onClick = {
-                            val startList = ArrayList<NaviLatLng>()
-                            startList.add(NaviLatLng(mStartPoint.position.latitude, mStartPoint.position.longitude))
-                            val endList = ArrayList<NaviLatLng>()
-                            endList.add(NaviLatLng(mEndpoint.position.latitude, mEndpoint.position.longitude))
-                            val strategy: Int = aMapNavi.strategyConvert(
-                                //congestion 躲避拥堵
-                                true,
-                                //不走高速
-                                false,
-                                //避免收费
-                                false,
-                                //高速优先
-                                true,
-                                //多路径
-                                true
-                            )
-                            aMapNavi.calculateDriveRoute(
-                                startList,
-                                endList,
-                                null,
-                                strategy
-                            )
-                        }) {
-                            Text(text = "计算路线")
-                        }
-                    }
-                }
-            }
-            if (routeShow) {
-                Box{
-                    Row {
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(10000) // 延迟10秒
+            if (rssi > "70") {
+                bluetoothDatabase.saveMapInfo(mStartPoint.name, System.currentTimeMillis())
 
-                    }
-                }
             }
         }
+    }
 
-        Box(modifier = Modifier.size(500.dp,500.dp)) {
+        Box {
+
+        Box(modifier = Modifier
+            .fillMaxSize()) {
             AMap(
                 modifier = Modifier,
                 locationListener = locationListener,
