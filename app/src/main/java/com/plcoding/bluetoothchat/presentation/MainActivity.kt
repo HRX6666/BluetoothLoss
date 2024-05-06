@@ -9,31 +9,41 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
-import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.AlertDialog
+import androidx.compose.material.Button
+import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.amap.api.location.AMapLocationClient
 import com.amap.api.maps.MapsInitializer
 import com.amap.api.services.core.ServiceSettings
-import com.plcoding.bluetoothchat.presentation.components.DeviceScreen
+import com.plcoding.bluetoothchat.R
+import com.plcoding.bluetoothchat.domain.chat.BluetoothDevice
 import com.plcoding.bluetoothchat.presentation.components.MainPage
 import com.plcoding.bluetoothchat.rssi.BluetoothDatabase
 import com.vmadalin.easypermissions.EasyPermissions
@@ -67,8 +77,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         viewModel = ViewModelProvider(this).get(BluetoothViewModel::class.java)
+        viewModel.connectToDevice(BluetoothDevice("HC-05","E8:6B:EA:DE:E9:EE",1))
         context = this
-        startScanTask()
+      //  startScanTask()
         // 实例化 BluetoothDatabase，并传入 context
         bluetoothDatabase = BluetoothDatabase(context)
         window.setFlags(
@@ -80,33 +91,32 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.StartActivityForResult()
         ) { /* Not needed */ }
         //定位隐私政策同意
-        AMapLocationClient.updatePrivacyShow(applicationContext, true, true);
-        AMapLocationClient.updatePrivacyAgree(applicationContext, true);
+        AMapLocationClient.updatePrivacyShow(applicationContext,true,true);
+        AMapLocationClient.updatePrivacyAgree(applicationContext,true);
         //地图隐私政策同意
-        MapsInitializer.updatePrivacyShow(applicationContext, true, true);
-        MapsInitializer.updatePrivacyAgree(applicationContext, true);
+        MapsInitializer.updatePrivacyShow(applicationContext,true,true);
+        MapsInitializer.updatePrivacyAgree(applicationContext,true);
         //搜索隐私政策同意
-        ServiceSettings.updatePrivacyShow(applicationContext, true, true);
-        ServiceSettings.updatePrivacyAgree(applicationContext, true);
+        ServiceSettings.updatePrivacyShow(applicationContext,true,true);
+        ServiceSettings.updatePrivacyAgree(applicationContext,true);
         MapsInitializer.setTerrainEnable(true)
         val permissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { perms ->
-            val canEnableBluetooth = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val canEnableBluetooth = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 perms[Manifest.permission.BLUETOOTH_CONNECT] == true
             } else true
             // 如果有蓝牙权限并且蓝牙未开启，则请求开启蓝牙
-            if (canEnableBluetooth && !isBluetoothEnabled) {
+            if(canEnableBluetooth && !isBluetoothEnabled) {
                 enableBluetoothLauncher.launch(
                     Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
                 )
             }
         }
 // 请求蓝牙和定位权限
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissionLauncher.launch(
-                arrayOf(
-//请求多个权限
+                arrayOf(//请求多个权限
                     Manifest.permission.BLUETOOTH_SCAN,
                     Manifest.permission.BLUETOOTH_CONNECT,
                 )
@@ -115,11 +125,7 @@ class MainActivity : ComponentActivity() {
         // 检查定位权限并请求
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
-                    1
-                );
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION), 1);
             }
         }
         // 请求其他权限
@@ -137,17 +143,15 @@ class MainActivity : ComponentActivity() {
             .build()
         EasyPermissions.requestPermissions(this, build)
         setContent {
-            MaterialTheme {
-                // 获取 BluetoothViewModel 实例
-                val viewModel = hiltViewModel<BluetoothViewModel>()
-                // 收集状态
-                val state by viewModel.state.collectAsState()
-                // 获取配对设备的 RSSI 映射
-                val pairedDevicesRssiMap by viewModel.pairedDevicesRssiMap
+            val lossAlertDialog= remember { mutableStateOf(false) }//选择技能的弹出框状态
 
-                // 处理错误消息的 LaunchedEffect
+            MaterialTheme{
+                val viewModel = hiltViewModel<BluetoothViewModel>()
+                val state by viewModel.state.collectAsState()
+                val pairedDevicesRssiMap by viewModel.pairedDevicesRssiMap
                 LaunchedEffect(key1 = state.errorMessage) {
                     state.errorMessage?.let { message ->
+                        lossAlertDialog.value = true
                         Toast.makeText(
                             applicationContext,
                             message,
@@ -156,9 +160,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // 处理连接成功的 LaunchedEffect
                 LaunchedEffect(key1 = state.isConnected) {
-                    if (state.isConnected) {
+                    if(state.isConnected) {
                         Toast.makeText(
                             applicationContext,
                             "你已连接成功",
@@ -170,58 +173,101 @@ class MainActivity : ComponentActivity() {
                 Surface(
                     color = MaterialTheme.colors.background
                 ) {
+                    MainPage(//加入MainPage组件，传入对应的参数
+                        state = state,
+                        onStartScan = viewModel::startScan,//点击开始扫描
+                        onSendMessage = viewModel::sendMessage,
+                        onDeviceClick = viewModel::connectToDevice,//如果被点击item连接
+                        rssi = rssi.toString()
+                    )
                     when {
                         state.isConnecting -> {
-                            // 显示连接中状态
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                CircularProgressIndicator()
-                                Text(text = "正在连接，请稍后......")
-                            }
-                        }
+                            startScanTask()
+//                            Column(
+//                                modifier = Modifier.fillMaxSize(),
+//                                horizontalAlignment = Alignment.CenterHorizontally,
+//                                verticalArrangement = Arrangement.Center
+//                            ) {
+//                                CircularProgressIndicator()
+//                                Text(text = "正在连接，请稍后......")
+//                            }
 
+                        }
+                        /**
+                         * 如果成功连接了
+                         */
                         state.isConnected -> {
-                            // 显示主页界面
-                            MainPage(
-                                state = state,
-                                onStartScan = viewModel::startScan, // 点击开始扫描
-                                onSendMessage = viewModel::sendMessage,
-                                onDeviceClick = viewModel::connectToDevice, // 点击设备连接
-                                rssi = rssi.toString() // RSSI 值
-                            )
                         }
-
                         else -> {
-                            // 显示设备屏幕
-                            DeviceScreen(
-                                state = state,
-                                onStartScan = viewModel::startScan, // 点击开始扫描
-                                onStopScan = viewModel::stopScan, // 点击停止扫描
-                                onDeviceClick = viewModel::connectToDevice, // 点击设备连接
-                                onStartServer = viewModel::waitForIncomingConnections, // 点击启动服务器
-                                rssi = rssi.toString() // RSSI 值
-                            )
+//                            DeviceScreen(
+//                                state = state,
+//                                onStartScan = viewModel::startScan,//点击开始扫描
+//                                onStopScan = viewModel::stopScan,//点击停止扫描
+//                                onDeviceClick = viewModel::connectToDevice,//如果被点击item连接
+//                                onStartServer = viewModel::waitForIncomingConnections,//点击连接服务端
+//                                rssi = rssi.toString()
+//                            )
+
+                                // 只有在 `lossAlertDialog1` 为 `true` 且 `lossAlertDialog` 为 `false` 时，显示弹出框
+
+
                         }
                     }
                 }
             }
+
+            if (lossAlertDialog.value) {
+                AlertDialog(
+                    onDismissRequest = { lossAlertDialog.value = false },
+                    title = {
+                        Text(text = "HC-05已断开")
+                    },
+                    text = {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            // 在对话框中心显示图片
+                            Image(
+                                painter = painterResource(R.drawable.ic_bluetooth), // 替换为你的图片资源
+                                contentDescription = "Your Image",
+                                modifier = Modifier.size(200.dp) // 调整图片大小
+                            )
+                        }
+                    },
+                    buttons = {
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Button(
+                                onClick = {
+                                    lossAlertDialog.value = false
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    backgroundColor = Color(0xFF6FD2FF),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text(text = "好的")
+                            }
+                        }
+                    }
+                )
+            }
+
         }
     }
-        // 启动扫描任务
-        private fun startScanTask() {
-            handler.postDelayed(object : Runnable {
-                override fun run() {
-                    viewModel.startScan()
-                    // 获取 RSSI 值并记录日志
-                    rssi = Math.abs(bluetoothDatabase.getRssi("E8:6B:EA:DE:E9:EE"))
-                    Log.i("rooo", rssi.toString() + "E8:6B:EA:DE:E9:EE")
-                    handler.postDelayed(this, 200)
-                }
-            }, 200)
-        }
+    private fun startScanTask() {
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                viewModel.sendMessage("xxx")
+
+                handler.postDelayed(this, 1000)
+
+            }
+        }, 1000)
+    }
 
 
 }

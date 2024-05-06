@@ -64,13 +64,6 @@ class FoundDeviceReceiver(
             }
         }
     }
-
-    /**
-     * 一个挂起函数
-     * 方法用于保存和获取设备的RSSI值。它在IO线程中执行数据库操作，
-     * 并在每次保存后延迟200毫秒以获取最新的RSSI值。在发生异常时，
-     * 它会返回错误值或其他默认值，并最终关闭数据库连接
-     */
     private suspend fun saveAndGetRssi(address: String, rssi: Int): Int = withContext(Dispatchers.IO) {
         var currentRssi = rssi
         try {

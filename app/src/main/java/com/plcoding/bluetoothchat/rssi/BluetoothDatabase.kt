@@ -37,18 +37,21 @@ class BluetoothDatabase(context: Context) : SQLiteOpenHelper(context, "Bluetooth
         // 如果需要执行其他版本的升级操作，可以继续添加条件判断和相应的数据库操作
     }
 
-    fun saveMapInfo(address: String, timestamp: Long) {
+    fun saveMapInfo(address: String, timestamp: String) {
         writableDatabase.use { db ->
             val values = ContentValues().apply {
-                put("address", address)
-                put("timestamp", timestamp)
+                if(address.length>0){
+                    put("address", address)
+                    put("timestamp", timestamp)
+                }
+
             }
             db.insertWithOnConflict("MapInfo", null, values, SQLiteDatabase.CONFLICT_REPLACE)
         }
     }
     @SuppressLint("Range")
-    fun getMapInfo(): List<Pair<String, Long>> {
-        val mapInfoList = mutableListOf<Pair<String, Long>>()
+    fun getMapInfo(): List<Pair<String, String>> {
+        val mapInfoList = mutableListOf<Pair<String, String>>()
         readableDatabase.use { db ->
             val cursor = db.query(
                 "MapInfo",
@@ -61,7 +64,7 @@ class BluetoothDatabase(context: Context) : SQLiteOpenHelper(context, "Bluetooth
             )
             while (cursor.moveToNext()) {
                 val address = cursor.getString(cursor.getColumnIndex("address"))
-                val timestamp = cursor.getLong(cursor.getColumnIndex("timestamp"))
+                val timestamp = cursor.getString(cursor.getColumnIndex("timestamp"))
                 val mapInfo = Pair(address, timestamp)
                 mapInfoList.add(mapInfo)
             }
@@ -78,6 +81,14 @@ class BluetoothDatabase(context: Context) : SQLiteOpenHelper(context, "Bluetooth
             db.insertWithOnConflict("BluetoothDevices", null, values, SQLiteDatabase.CONFLICT_REPLACE)
         }
     }
+    fun clearRssi(address: String) {
+        writableDatabase.use { db ->
+            val whereClause = "address = ?"
+            val whereArgs = arrayOf(address)
+            db.delete("BluetoothDevices", whereClause, whereArgs)
+        }
+    }
+
 
     @SuppressLint("Range")
     fun getRssi(address: String): Int {

@@ -2,7 +2,10 @@ package com.plcoding.bluetoothchat.presentation.components
 
 
 
+import android.content.Intent
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -26,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -33,11 +37,11 @@ import androidx.compose.ui.unit.sp
 import com.plcoding.bluetoothchat.R
 import com.plcoding.bluetoothchat.domain.chat.BluetoothDevice
 import com.plcoding.bluetoothchat.map.Map
+import com.plcoding.bluetoothchat.map.SetActivity
 import com.plcoding.bluetoothchat.presentation.BluetoothUiState
 import com.plcoding.bluetoothchat.time.TimePickerDialog
 import com.plcoding.bluetoothchat.time.TimePickerDialogContentDescription
 import com.plcoding.bluetoothchat.ui.theme.BluetoothChatTheme
-import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.time.Duration
 import java.time.LocalTime
@@ -74,63 +78,26 @@ fun MainPage(
     var currentTab by remember { mutableStateOf(MainTab.DEVICE) }
 
 // 是否显示丢失警报对话框的状态
-    val lossAlertDialog= remember { mutableStateOf(false) }//选择技能的弹出框状态
 
 
     LaunchedEffect(Unit) {
-        while (true) {
-            delay(10000) // 延迟10秒
-            if (comparisonResult > 0) {
-                // 如果 RSSI 大于 70
-                onSendMessage("beep") // 发送 "beep" 消息
-                lossAlertDialog.value = true // 显示丢失警报对话框
-            }
-        }
+       when{
+           state.isConnected->{
+
+           }
+           state.isConnecting->{
+
+           }
+           else->{
+               onSendMessage("beep")
+           }
+       }
     }
 
 // 将当前时间戳格式化为指定格式的日期字符串
     val formattedDate = dateFormat.format(Date(currentTimeMillis))
 
-// 如果丢失警报对话框需要显示
-    if (lossAlertDialog.value) {
-        AlertDialog(
-            onDismissRequest = { lossAlertDialog.value = false },
-            title = {
-                // 在对话框标题中显示格式化后的日期和提示消息
-                Text(text = formattedDate + "\nHC-05已断开")
-            },
-            text = {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // 在对话框中心显示图片
-                    Image(
-                        painter = painterResource(R.drawable.ic_bluetooth), // 替换为你的图片资源
-                        contentDescription = "Your Image",
-                        modifier = Modifier.size(200.dp) // 调整图片大小
-                    )
-                }
-            },
-            buttons = {
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // 添加一个按钮用于关闭对话框
-                    Button(
-                        onClick = { lossAlertDialog.value = false },
-                        colors = ButtonDefaults.buttonColors(
-                            backgroundColor = Color(0xFF6FD2FF), // 按钮的背景颜色
-                            contentColor = Color.White // 按钮中文本的颜色
-                        )
-                    ) {
-                        Text(text = "好的")
-                    }
-                }
-            }
-        )
-    }
+
 
     Scaffold(
         bottomBar = {
@@ -169,7 +136,7 @@ fun MainPage(
         ) {
             when (currentTab) {
                 MainTab.DEVICE -> DevicePage("HC-05",onSendMessage, rssi = rssi)
-                MainTab.LOCATION -> LocationPage( rssi = rssi,onSendMessage)
+                MainTab.LOCATION -> LocationPage(  state)
                 MainTab.SETTINGS -> SettingsPage( rssi = rssi,onSendMessage)
             }
         }
@@ -181,6 +148,12 @@ fun MainPage(
  */
 @Composable
 fun DevicePage(deviceName: String,onSendMessage: (String) -> Unit,rssi:String) {
+    val context = LocalContext.current // 获取当前的 Context
+    val startActivityLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        // 这里可以处理从 SetActivity 返回的结果，如果有的话
+    }
 
     Box(
         modifier = Modifier
@@ -222,11 +195,24 @@ fun DevicePage(deviceName: String,onSendMessage: (String) -> Unit,rssi:String) {
                     modifier = Modifier.weight(1f)
                 )
                 Column {
+
+                    Button(
+                        onClick ={
+                                val intent = Intent(context, SetActivity::class.java)
+                                startActivityLauncher.launch(intent)
+                        },
+                        modifier = Modifier.padding(top = 5.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            backgroundColor = Color(0xFFB9E3FF)
+                        )
+                    ) {
+                        Text(text = "设置")
+                    }
                     Button(
                         onClick ={
                             onSendMessage("beep") //发送beep信号
                         },
-                        modifier = Modifier.padding(top = 30.dp),
+                        modifier = Modifier.padding(top = 15.dp),
                         colors = ButtonDefaults.buttonColors(
                             backgroundColor = Color(0xFFB9E3FF)
                         )
@@ -245,7 +231,7 @@ fun DevicePage(deviceName: String,onSendMessage: (String) -> Unit,rssi:String) {
  * 地图部分的组件
  */
 @Composable
-fun LocationPage(rssi:String,onSendMessage: (String) -> Unit) {
+fun LocationPage(state: BluetoothUiState) {
 
     BluetoothChatTheme{
         // A surface container using the 'background' color from the theme
@@ -253,13 +239,20 @@ fun LocationPage(rssi:String,onSendMessage: (String) -> Unit) {
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colors.background
         ) {
-            Map(rssi)
-            //val mapInfoList = bluetoothDatabase.getMapInfo()
-            //for (mapInfo in mapInfoList) {
-            //    val address = mapInfo.first
-            //    val timestamp = mapInfo.second
-            //    // 处理地图地址信息和时间信息
-            //}
+
+            when{
+                state.isConnected->{
+                    Map("1")
+                }
+                state.isConnecting->{
+
+                }
+                else->{
+                    Map("0")
+                }
+            }
+
+
         }
     }
 
@@ -458,14 +451,11 @@ fun SettingsPage(rssi:String,onSendMessage: (String) -> Unit) {
 
 
 
-// 定义一个枚举类 MainTab，表示主选项卡，包括图标资源 ID 和标题
-//底部导航栏部分数据
 enum class MainTab(val iconResId: Int, val title: String) {
-    DEVICE(R.drawable.ic_device, "设备"), // 设备选项卡，包括设备图标和标题
-    LOCATION(R.drawable.ic_location, "定位"), // 定位选项卡，包括定位图标和标题
-    SETTINGS(R.drawable.ic_settings, "设置") // 设置选项卡，包括设置图标和标题
+    DEVICE(R.drawable.ic_device, "设备"),
+    LOCATION(R.drawable.ic_location, "定位"),
+    SETTINGS(R.drawable.ic_settings, "设置")
 }
-
 
 @Preview
 @Composable

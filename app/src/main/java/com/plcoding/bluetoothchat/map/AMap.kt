@@ -1,17 +1,24 @@
 package com.plcoding.bluetoothchat.map
 
+import android.annotation.SuppressLint
 import android.content.ComponentCallbacks
 import android.content.Context
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.Button
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.Text
@@ -19,7 +26,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +44,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.amap.api.location.AMapLocationClient
 import com.amap.api.location.AMapLocationClientOption
 import com.amap.api.location.AMapLocationListener
@@ -59,8 +68,10 @@ import com.amap.api.services.geocoder.RegeocodeResult
 import com.plcoding.bluetoothchat.R
 import com.plcoding.bluetoothchat.rssi.BluetoothDatabase
 import com.plcoding.bluetoothchat.utils.MapUtil
-import kotlinx.coroutines.delay
-
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /**
  * 地图组件部分，以及查看主机在哪个具体位置
@@ -84,13 +95,35 @@ lateinit var aMapNavi: AMapNavi
 val LocalAppContext = staticCompositionLocalOf<Context?> { error("No app context provided") }
 @Composable
 fun Map(rssi:String) {
+
+    @SuppressLint("NewApi")
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun convertMillisToNormalTime(millis: Long): String {
+        // 将毫秒时间戳转换为 LocalDateTime
+        val dateTime = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault())
+        } else {
+            TODO("VERSION.SDK_INT < O")
+        }
+
+        // 定义日期时间格式化器
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+
+        // 格式化日期时间并返回格式化后的字符串
+        return dateTime.format(formatter)
+    }
+
+
+    val normalTime = convertMillisToNormalTime(System.currentTimeMillis())
+
+
     val context = LocalContext.current
     var mStartPoint by remember { mutableStateOf(AMapPoint("", LatLonPoint(0.0, 0.0))) }
     var mEndpoint by remember { mutableStateOf(AMapPoint("", LatLonPoint(0.0, 0.0))) }
     val viewModel : AMapViewModel = viewModel()
     val bluetoothDatabase = BluetoothDatabase(context)
     val routeShow by viewModel.routeShow.collectAsState()
-
+    val mapDialog= remember { mutableStateOf(true) }//选择技能的弹出框状态
     val searchListener = object : GeocodeSearch.OnGeocodeSearchListener {
         override fun onRegeocodeSearched(p0: RegeocodeResult, p1: Int) {
             mEndpoint = AMapPoint(
@@ -127,10 +160,14 @@ fun Map(rssi:String) {
                 //显示地图定位结果
                 mLocationClient.stopLocation()
                 mListener?.onLocationChanged(aMapLocation)
-                Log.e(
-                    "AmapLLLLLLL",
-                    mStartPoint.name
-                )
+                Log.e("AmapLLLLLLL", mStartPoint.name)
+                if (mapDialog.value){
+                    if(rssi=="0"){
+                        bluetoothDatabase.saveMapInfo(mStartPoint.name, normalTime)
+                        mapDialog.value=false
+                    }
+                }
+
             } else {
                 //定位失败时，可通过ErrCode（错误码）信息来确定失败的原因，errInfo是错误信息，详见错误码表。
                 Log.e(
@@ -141,28 +178,54 @@ fun Map(rssi:String) {
             }
         }
     }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(10000) // 延迟10秒
-            if (rssi > "70") {
-                bluetoothDatabase.saveMapInfo(mStartPoint.name, System.currentTimeMillis())
 
+
+    Column {
+        val database = BluetoothDatabase(context) // Initialize your database here
+        val mapInfoList = remember { database.getMapInfo() }
+        val navController = rememberNavController()
+        NavHost(navController, startDestination = "main") {
+            composable("main") {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // 主屏幕内容
+                    Button(
+                        onClick = {
+                            navController.navigate("lostRecords")
+                        },
+                        modifier = Modifier.padding(top = 5.dp),
+                        colors = androidx.compose.material.ButtonDefaults.buttonColors(
+                            backgroundColor = Color(0xFFB9E3FF)
+                        )
+                    ) {
+                        Text(text = "查看丢失记录")
+                    }
+
+                    // AMap 组件
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f) // 将 AMap 组件的高度设为按钮的一半
+                    ) {
+                        AMap(
+                            modifier = Modifier.fillMaxSize(),
+                            locationListener = locationListener,
+                            searchListener = searchListener,
+                            viewModel = viewModel
+                        )
+                    }
+                }
+            }
+
+            composable("lostRecords") {
+                MapList(mapInfoList)
             }
         }
     }
 
-        Box {
-
-        Box(modifier = Modifier
-            .fillMaxSize()) {
-            AMap(
-                modifier = Modifier,
-                locationListener = locationListener,
-                searchListener = searchListener,
-                viewModel = viewModel
-            )
-        }
-    }
 }
 
 
